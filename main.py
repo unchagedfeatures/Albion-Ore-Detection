@@ -5,7 +5,7 @@ from ultralytics import YOLO
 import logging
 
 # Инициализация модели YOLO | Initializing the YOLO model
-model = YOLO("model.pt")
+model = YOLO("best.pt")
 logging.getLogger('ultralytics').setLevel(logging.ERROR)
 def scan_for_ore():
     screenshot = pyautogui.screenshot()
