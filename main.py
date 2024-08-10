@@ -1,48 +1,65 @@
 import time
+from typing import Tuple, Optional
 import keyboard
 import pyautogui
 from ultralytics import YOLO
 import logging
+import numpy as np
 
-# Инициализация модели YOLO | Initializing the YOLO model
-model = YOLO("best.pt")
+# Initialize YOLO model
+MODEL = YOLO("model.pt")
 logging.getLogger('ultralytics').setLevel(logging.ERROR)
-def scan_for_ore():
-    screenshot = pyautogui.screenshot()
-    results = model(screenshot)
-    if len(results) > 0:
-        # Получаем координаты всех обнаруженных руд | Get the coordinates of all detected ores
-        ores = [(int(box[0]), int(box[1])) for box in results[0].boxes.xyxy]
-        # Находим ближайшую к центру экрана руду | Find the ore closest to the center of the screen
-        screen_center = (pyautogui.size()[0] // 2, pyautogui.size()[1] // 2)
-        try:
-            closest_ore = min(ores, key=lambda ore: ((ore[0] - screen_center[0])**2 + (ore[1] - screen_center[1])**2)**0.5)
-        except:
-            # Руды закончились | The ores have ended
-            print('Руды закончились!')
-            closest_ore = 0
-            global running
-            running = False
-            time.sleep(10)
-        return closest_ore
+
+# Screen center calculation (done once)
+SCREEN_CENTER = np.array(pyautogui.size()) // 2
+
+# Constants
+MAX_ATTEMPTS = 15
+ATTEMPT_DELAY = 6
+
+def scan_for_ore() -> Optional[Tuple[int, int]]:
+    results = MODEL(np.array(pyautogui.screenshot()))
+    
+    if results and len(results[0].boxes):
+        # Get coordinates of all detected ores (x1, y1, x2, y2)
+        ores = results[0].boxes.xyxy.cpu().numpy()
+        
+        # Calculate centers of bounding boxes
+        ore_centers = (ores[:, :2] + ores[:, 2:]) / 2
+        
+        # Find the ore closest to the screen center
+        distances = np.linalg.norm(ore_centers - SCREEN_CENTER, axis=1)
+        closest_index = np.argmin(distances)
+        
+        return tuple(map(int, ore_centers[closest_index]))
+    
     return None
 
-#Нажатие на руды | Click on the ores
-def click_ore(x, y):
-    pyautogui.click(x, y)
+def click_ore(coords: Tuple[int, int]) -> None:
+    pyautogui.click(*coords)
 
-def main():
-    print("Нажмите 'Q' для остановки.")
-    running = True
-    while running:
-        ore_pos = scan_for_ore()
-        if ore_pos:
-                click_ore(*ore_pos)
-                time.sleep(6)
-        if keyboard.is_pressed('q'):
-            running = False
+def main() -> None:
+    print("Press 'Q' to stop the script.")
     
-    print("Скрипт остановлен.")
+    consecutive_failures = 0
+    
+    while not keyboard.is_pressed('q'):
+        ore_coords = scan_for_ore()
+        
+        if ore_coords:
+            consecutive_failures = 0  # Reset the counter on successful detection
+            click_ore(ore_coords)
+            time.sleep(6)
+        else:
+            consecutive_failures += 1
+            if consecutive_failures >= MAX_ATTEMPTS:
+                print("No more ores found after multiple attempts. Stopping script.")
+                break
+            else:
+                print(f"No ore detected. Retrying in {ATTEMPT_DELAY} seconds... (Attempt {consecutive_failures}/{MAX_ATTEMPTS})")
+                time.sleep(ATTEMPT_DELAY)
+    
+    print("Script stopped.")
 
 if __name__ == "__main__":
     main()
