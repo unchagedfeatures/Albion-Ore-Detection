@@ -3,6 +3,7 @@
 ### 🔍 Overview
 
 The Albion Ore Detection script is designed to enhance the resource gathering process in Albion Online. It employs computer vision techniques to analyze the game screen in real-time, identifying various types of ore deposits. Once detected, the script automates the mining process, streamlining resource collection for players.
+![image](https://github.com/user-attachments/assets/f4efa1ed-af2f-46f2-8373-fa3e256b2476)
 
 ### 🛠️ Key Features
 
